@@ -1,0 +1,17 @@
+# compiled output
+/node_modules
+/build
+/lib
+/t.ts
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+
+# Tests
+/coverage
+
+# IDE - VSCode
+.vscode

@@ -13,6 +13,13 @@ export enum Method {
   DELETE = 'DELETE',
 }
 
+export enum ErrorMessage {
+  MIN_RETRY_ATTEMPTS = 'Retry attempts must not be less than 0',
+  MIN_INTERVAL = 'Retry interval must not be less than 0',
+  INVALID_CONTENT_TYPE = 'Unable to validate: content-type of response is not application/json.',
+  UNSUPPORTED_PROTOCOL = 'Unsupported protocol:',
+}
+
 export interface Response<T, B extends boolean> {
   status: number;
   contentLength: number;

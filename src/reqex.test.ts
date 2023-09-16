@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import { reqex } from './reqex';
 import { v } from 'vator';
 import { AddressInfo } from 'net';
+import { ErrorMessage } from './types';
 
 interface CreateServerOptions {
   status?: number;
@@ -26,10 +27,10 @@ const createTestServer = (options: CreateServerOptions = {}) => {
         failRequest -= 1;
       }
 
-      const jsonBody = JSON.stringify(body == null ? '' : body);
+      const jsonBody = body != null ? JSON.stringify(body) : '';
       const headers = {
-        'Content-Type': contentType,
-        ...(body == null ? {} : { 'Content-Length': jsonBody.length }),
+        'content-type': contentType,
+        ...(body == null ? {} : { 'content-length': jsonBody.length }),
       };
 
       res.writeHead(status, headers);
@@ -61,7 +62,9 @@ describe('error handling', () => {
     expect.assertions(1);
 
     await reqex.get('ftp://localhost:3000').catch((error) => {
-      expect(error.message).toStrictEqual('Unsupported protocol: ftp');
+      expect(error.message).toStrictEqual(
+        `${ErrorMessage.UNSUPPORTED_PROTOCOL} ftp`,
+      );
     });
   });
 
@@ -73,9 +76,7 @@ describe('error handling', () => {
         .get('ftp://localhost:3000')
         .retry({ attempts: 2, interval: -1 });
     } catch (error) {
-      expect(error.message).toStrictEqual(
-        'Retry interval must not be less than 0',
-      );
+      expect(error.message).toStrictEqual(ErrorMessage.MIN_INTERVAL);
     }
   });
 
@@ -85,15 +86,16 @@ describe('error handling', () => {
     try {
       await reqex.get('ftp://localhost:3000').retry({ attempts: -2 });
     } catch (error) {
-      expect(error.message).toStrictEqual(
-        'Retry attempts must not be less than 0',
-      );
+      expect(error.message).toStrictEqual(ErrorMessage.MIN_RETRY_ATTEMPTS);
     }
   });
 
   it('throws and error if request validation fails', async () => {
     expect.assertions(1);
-    const { server, url } = await createTestServer();
+    const { server, url } = await createTestServer({
+      contentType: 'application/json',
+      body: { company: 'my-company' },
+    });
 
     try {
       await reqex.get(url).validate({ name: v.string });
@@ -102,6 +104,23 @@ describe('error handling', () => {
         // eslint-disable-next-line quotes
         "Validation failed: key 'name' is missing, but 'string' type is required.",
       );
+    }
+
+    server.close();
+  });
+
+  it('throws an error if expected json but received text/html', async () => {
+    expect.assertions(1);
+
+    const { server, url } = await createTestServer({
+      contentType: 'text/html',
+      body: '<p>html response</p>',
+    });
+
+    try {
+      await reqex.get(url).validate({ name: v.string });
+    } catch (error) {
+      expect(error.message).toStrictEqual(ErrorMessage.INVALID_CONTENT_TYPE);
     }
 
     server.close();
@@ -217,6 +236,22 @@ describe('reqex test', () => {
     const response = await reqex
       .get(url)
       .retry({ attempts: 3, interval: 1, logOnRetry: true })
+      .validate({ data: v.string });
+
+    expect(response.json).not.toBeUndefined();
+    expect(response.json.data).toStrictEqual('some data');
+
+    server.close();
+  });
+
+  it('makes get request with retries and does not log', async () => {
+    expect.assertions(2);
+
+    const { server, url } = await createTestServer({ fails: 2 });
+
+    const response = await reqex
+      .get(url)
+      .retry({ attempts: 3, interval: 1, logOnRetry: false })
       .validate({ data: v.string });
 
     expect(response.json).not.toBeUndefined();

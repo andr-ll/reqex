@@ -4,6 +4,7 @@
 [![Build][build-img]][build-url]
 [![Coverage][coverage-img]][coverage-url]
 [![License][license-pic]][license-url]
+[![Downloads][npm-downloads]][npm-url]
 
 Promise based http client with built in retry and JSON validator for response.
 
@@ -295,6 +296,7 @@ Expected output:
 
 [npm-img]: https://img.shields.io/npm/v/reqex.svg?logo=npm
 [npm-url]: https://www.npmjs.com/package/reqex
+[npm-downloads]: https://img.shields.io/npm/dt/reqex?logo=Hack%20The%20Box&logoColor=green&label=downloads
 [build-img]: https://img.shields.io/github/actions/workflow/status/andr-ii/reqex/build.yml?logo=github
 [build-url]: https://github.com/andr-ii/reqex/actions/workflows/build.yml
 [coverage-img]: https://img.shields.io/coverallsCoverage/github/andr-ii/reqex?label=coverage&logo=jest

@@ -11,12 +11,12 @@ import * as types from './types';
 import * as http from 'http';
 import * as https from 'https';
 import nuti from 'nuti';
-import { Method, Response, RetryOptions } from './types';
+import { ErrorMessage, Method, Response, RetryOptions } from './types';
 import { validate, ValidationResult, ValidationSchema, Values } from 'vator';
 
-type Logger = ReturnType<typeof nuti.makeLogger>;
+const logger = nuti.makeLogger();
 
-const protocols: Partial<Record<string, typeof http | typeof https>> = {
+const PROTOCOLS: Partial<Record<string, typeof http | typeof https>> = {
   ['http:']: http,
   ['https:']: https,
 };
@@ -38,7 +38,6 @@ export class Request<
   constructor(
     private readonly url: string,
     private readonly method: M,
-    private readonly logger: Logger,
   ) {
     super(() => {
       return;
@@ -68,25 +67,19 @@ export class Request<
    * @throws an error if `options.attempts` or `options.interval` are less than 0
    */
   retry(options: RetryOptions) {
-    const { attempts, interval, logOnRetry } = options;
+    const { attempts, interval, logOnRetry = true } = options;
 
-    if (attempts < 0) {
-      throw new Error('Retry attempts must not be less than 0');
-    }
+    if (attempts < 0) throw new Error(ErrorMessage.MIN_RETRY_ATTEMPTS);
 
     this._retryAttempts = Math.min(attempts, 15);
 
     if (interval) {
-      if (interval < 0) {
-        throw new Error('Retry interval must not be less than 0');
-      }
+      if (interval < 0) throw new Error(ErrorMessage.MIN_INTERVAL);
 
       this._retryInterval = Math.min(interval, 60);
     }
 
-    if (logOnRetry) {
-      this._logOnRetry = true;
-    }
+    this._logOnRetry = logOnRetry;
 
     return this;
   }
@@ -142,18 +135,21 @@ export class Request<
         throw error;
       }
 
-      if (this._logOnRetry) {
-        this.logger.warn(
-          `Request has failed, retry in ${this._retryInterval} sec.`,
-          { error },
-        );
-      }
+      this.logOnRetry(error);
 
       this._retryAttempts -= 1;
       await nuti.timeout(this._retryInterval * 1000);
 
       return this.manageRequest();
     }
+  }
+
+  private logOnRetry(error: unknown) {
+    if (!this._logOnRetry) return;
+
+    logger.warn(`Request has failed, retry in ${this._retryInterval} sec.`, {
+      error,
+    });
   }
 
   /**
@@ -168,7 +164,7 @@ export class Request<
         let rawData = '';
         const status = res.statusCode as number;
         const isJSON =
-          res.headers['content-type']?.includes('application/json') === true;
+          res.headers['content-type']?.match(/application\/json/) != null;
 
         if (this._pipeStream) {
           res.pipe(this._pipeStream);
@@ -182,14 +178,8 @@ export class Request<
           const json =
             isJSON && status !== 204 ? JSON.parse(rawData) : undefined;
 
-          if (this._schema && isJSON) {
-            try {
-              this._retryAttempts = 0;
-              validate(json, this._schema);
-            } catch (error) {
-              reject(error);
-            }
-          }
+          // Should throw if expected JSON response
+          this.validateResponse(json, reject);
 
           resolve({
             status,
@@ -211,24 +201,43 @@ export class Request<
   }
 
   /**
+   * Validates response with vator.
+   * Throws an error if response is invalid.
+   */
+  private validateResponse(json: unknown, reject: (err: unknown) => void) {
+    if (!this._schema) return;
+
+    if (!json) {
+      reject(new Error(ErrorMessage.INVALID_CONTENT_TYPE));
+    }
+
+    try {
+      this._retryAttempts = 0;
+      validate(json, this._schema);
+    } catch (error) {
+      reject(error);
+    }
+  }
+
+  /**
    * Validates and changes request's input.
    * @returns valid request options, raw request body and valid protocol (http(s))
    */
   private validateRequestInput() {
     const { protocol, hostname, port, pathname, host } = new URL(this.url);
-    const validProtocol = protocols[protocol];
+    const validProtocol = PROTOCOLS[protocol];
 
     if (validProtocol == null) {
-      throw new Error(`Unsupported protocol: ${protocol.replace(':', '')}`);
+      throw new Error(
+        `${ErrorMessage.UNSUPPORTED_PROTOCOL} ${protocol.replace(':', '')}`,
+      );
     }
 
     const rawReqBody = this._body ? JSON.stringify(this._body) : '';
 
     if (this._headers['content-type'] == null) {
-      Object.assign(this._headers, {
-        'content-type': 'application/json',
-        'content-length': rawReqBody.length,
-      });
+      this._headers['content-type'] = 'application/json; charset=UTF-8';
+      this._headers['content-length'] = rawReqBody.length.toString();
     }
 
     return {

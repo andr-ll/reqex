@@ -63,7 +63,7 @@
     "typescript": "^5.2.2"
   },
   "dependencies": {
-    "nuti": "^3.0.0",
+    "nuti": "^3.0.1",
     "vator": "^1.2.0"
   }
 }

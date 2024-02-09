@@ -16,8 +16,8 @@
     "outDir": "./lib",
     "declaration": true,
     "removeComments": false,
-    "skipLibCheck": true,
+    "skipLibCheck": true
   },
   "include": ["./src"],
-  "exclude": ["./node_modules", "./lib", "*.js", "**/**.test.ts"],
+  "exclude": ["./node_modules", "./lib", "*.js", "**/**.test.ts"]
 }

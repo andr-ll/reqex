@@ -11,7 +11,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git@github.com:andr-ii/reqex.git"
+    "url": "git@github.com:andr-ll/reqex.git"
   },
   "files": [
     "lib"
@@ -20,7 +20,7 @@
     {
       "name": "Andrii Lytovchenko",
       "email": "andr.lyt.dev@gmail.com",
-      "url": "https://github.com/andr-ii"
+      "url": "https://github.com/andr-ll"
     }
   ],
   "keywords": [
